@@ -13,7 +13,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git python3 openssl expect \
+            git python3 openssl \
             parted dosfstools e2fsprogs \
             util-linux mount cpio xz-utils \
             gzip tar rsync kpartx multipath-tools
@@ -49,155 +49,24 @@ jobs:
         run: |
           mkdir -p "$PMOS_WORK"
 
-          cat > /tmp/init.exp <<'EXPECT'
-          set timeout 30
-          log_user 1
-
-          spawn pmbootstrap init
-
-          # WORK PATH
-          expect {
-            -re {Work path.*:} {
-              send -- "$env(PMOS_WORK)\r"
-            }
-            timeout {
-              puts "\nERROR: Work path prompt not found"
-              exit 10
-            }
-            eof {
-              puts "\nERROR: pmbootstrap exited at work path"
-              exit 11
-            }
-          }
-
-          # PMAPORTS PATH
-          expect {
-            -re {pmaports.*:} {
-              send -- "$env(PMOS_APORTS)\r"
-            }
-            timeout {
-              puts "\nERROR: pmaports prompt not found"
-              exit 12
-            }
-            eof {
-              puts "\nERROR: pmbootstrap exited at pmaports"
-              exit 13
-            }
-          }
-
-          # CHANNEL
-          expect {
-            -re {Channel \[.*\]:} {
-              send -- "edge\r"
-            }
-            timeout {
-              puts "\nERROR: Channel prompt not found"
-              exit 14
-            }
-            eof {
-              puts "\nERROR: pmbootstrap exited at channel"
-              exit 15
-            }
-          }
-
-          # DEVICE / VENDOR / OTHER QUESTIONS
-          expect {
-            -re {Device.*:} {
-              send -- "qcom-msm89x7\r"
-              exp_continue
-            }
-
-            -re {Vendor.*:} {
-              send -- "qcom\r"
-              exp_continue
-            }
-
-            -re {Codename.*:} {
-              send -- "msm89x7\r"
-              exp_continue
-            }
-
-            -re {Kernel.*:} {
-              send -- "mainline\r"
-              exp_continue
-            }
-
-            -re {User interface.*:} {
-              send -- "phosh\r"
-              exp_continue
-            }
-
-            -re {Service manager.*:} {
-              send -- "systemd\r"
-              exp_continue
-            }
-
-            -re {Locale.*:} {
-              send -- "C.UTF-8\r"
-              exp_continue
-            }
-
-            -re {Hostname.*:} {
-              send -- "qcom-msm89x7\r"
-              exp_continue
-            }
-
-            -re {Username.*:} {
-              send -- "dev\r"
-              exp_continue
-            }
-
-            -re {User.*:} {
-              send -- "dev\r"
-              exp_continue
-            }
-
-            -re {Boot partition.*:} {
-              send -- "512\r"
-              exp_continue
-            }
-
-            -re {Extra.*space.*:} {
-              send -- "0\r"
-              exp_continue
-            }
-
-            -re {Parallel.*jobs.*:} {
-              send -- "4\r"
-              exp_continue
-            }
-
-            -re {ccache.*:} {
-              send -- "0\r"
-              exp_continue
-            }
-
-            -re {outdated.*packages.*:} {
-              send -- "y\r"
-              exp_continue
-            }
-
-            -re {SSH.*:} {
-              send -- "n\r"
-              exp_continue
-            }
-
-            eof {
-              puts "\n=== pmbootstrap init finished ==="
-            }
-
-            timeout {
-              puts "\nERROR: Unknown pmbootstrap prompt"
-              puts "The prompt above needs to be added."
-              exit 28
-            }
-          }
-
-          catch wait result
-          exit [lindex $result 3]
-          EXPECT
-
-          expect /tmp/init.exp
+          printf '%s\n' \
+            "$PMOS_WORK" \
+            "$PMOS_APORTS" \
+            "edge" \
+            "qcom" \
+            "msm89x7" \
+            "phosh" \
+            "systemd" \
+            "C.UTF-8" \
+            "qcom-msm89x7" \
+            "dev" \
+            "512" \
+            "0" \
+            "4" \
+            "0" \
+            "y" \
+            "n" \
+          | timeout 120 pmbootstrap init
 
       - name: Show configuration
         run: |
