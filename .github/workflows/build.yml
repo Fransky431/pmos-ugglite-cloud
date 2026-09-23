@@ -91,6 +91,7 @@ jobs:
       - name: Build installation
         run: |
           pmbootstrap install \
+            --password "pmos" \
             --no-sshd \
             --no-firewall \
             --filesystem=ext4
