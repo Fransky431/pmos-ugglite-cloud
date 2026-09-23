@@ -38,100 +38,25 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           pmbootstrap --version
 
-      - name: Initialize pmbootstrap
+      - name: Configure pmbootstrap (non-interactive)
         env:
           PMOS_APORTS: ${{ github.workspace }}/pmaports
           PMOS_WORK: /home/runner/.local/var/pmbootstrap
         run: |
           mkdir -p "$PMOS_WORK"
 
-          cat > /tmp/pmbootstrap-init.exp <<'EXPECT'
-          set timeout 1200
-          log_user 1
-
-          spawn pmbootstrap init
-
-          expect {
-            -re ".*aports.*path.*" {
-              send -- "$env(PMOS_APORTS)\r"
-              exp_continue
-            }
-            -re ".*pmaports.*path.*" {
-              send -- "$env(PMOS_APORTS)\r"
-              exp_continue
-            }
-            -re ".*device.*" {
-              send -- "qcom-msm89x7\r"
-              exp_continue
-            }
-            -re ".*vendor.*" {
-              send -- "qcom\r"
-              exp_continue
-            }
-            -re ".*codename.*" {
-              send -- "msm89x7\r"
-              exp_continue
-            }
-            -re ".*kernel.*" {
-              send -- "mainline\r"
-              exp_continue
-            }
-            -re ".*UI.*" {
-              send -- "phosh\r"
-              exp_continue
-            }
-            -re ".*service manager.*" {
-              send -- "systemd\r"
-              exp_continue
-            }
-            -re ".*locale.*" {
-              send -- "C.UTF-8\r"
-              exp_continue
-            }
-            -re ".*hostname.*" {
-              send -- "qcom-msm89x7\r"
-              exp_continue
-            }
-            -re ".*username.*" {
-              send -- "dev\r"
-              exp_continue
-            }
-            -re ".*user.*" {
-              send -- "dev\r"
-              exp_continue
-            }
-            -re ".*boot.*size.*" {
-              send -- "512\r"
-              exp_continue
-            }
-            -re ".*extra.*space.*" {
-              send -- "0\r"
-              exp_continue
-            }
-            -re ".*parallel.*jobs.*" {
-              send -- "4\r"
-              exp_continue
-            }
-            -re ".*ccache.*" {
-              send -- "0\r"
-              exp_continue
-            }
-            -re ".*outdated.*packages.*" {
-              send -- "y\r"
-              exp_continue
-            }
-            -re ".*SSH.*" {
-              send -- "n\r"
-              exp_continue
-            }
-            eof
-          }
-
-          catch wait result
-          exit [lindex $result 3]
-          EXPECT
-
-          expect /tmp/pmbootstrap-init.exp
+          pmbootstrap -y config aports "$PMOS_APORTS"
+          pmbootstrap -y config work "$PMOS_WORK"
+          pmbootstrap -y config device qcom-msm89x7
+          pmbootstrap -y config ui phosh
+          pmbootstrap -y config service_manager systemd
+          pmbootstrap -y config locale C.UTF-8
+          pmbootstrap -y config hostname qcom-msm89x7
+          pmbootstrap -y config user dev
+          pmbootstrap -y config boot_size 512
+          pmbootstrap -y config extra_space 0
+          pmbootstrap -y config jobs 4
+          pmbootstrap -y config ssh_keys False
 
       - name: Show configuration
         run: |
@@ -148,7 +73,7 @@ jobs:
 
       - name: Build installation
         run: |
-          pmbootstrap install \
+          pmbootstrap -y install \
             --no-sshd \
             --no-firewall \
             --filesystem=ext4
