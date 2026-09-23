@@ -55,139 +55,140 @@ jobs:
 
           spawn pmbootstrap init
 
+          # WORK PATH
           expect {
-            -re {Work path.*: *$} {
+            -re {Work path.*:} {
               send -- "$env(PMOS_WORK)\r"
             }
             timeout {
-              puts "\nERROR: Timed out waiting for Work path prompt"
+              puts "\nERROR: Work path prompt not found"
               exit 10
             }
             eof {
-              puts "\nERROR: pmbootstrap exited before Work path"
+              puts "\nERROR: pmbootstrap exited at work path"
               exit 11
             }
           }
 
+          # PMAPORTS PATH
           expect {
-            -re {pmaports.*: *$} {
+            -re {pmaports.*:} {
               send -- "$env(PMOS_APORTS)\r"
             }
             timeout {
-              puts "\nERROR: Timed out waiting for pmaports prompt"
+              puts "\nERROR: pmaports prompt not found"
               exit 12
             }
             eof {
-              puts "\nERROR: pmbootstrap exited before pmaports"
+              puts "\nERROR: pmbootstrap exited at pmaports"
               exit 13
             }
           }
 
+          # CHANNEL
           expect {
-            -re {Channel \[.*\]: *$} {
+            -re {Channel \[.*\]:} {
               send -- "edge\r"
             }
             timeout {
-              puts "\nERROR: Timed out waiting for channel prompt"
+              puts "\nERROR: Channel prompt not found"
               exit 14
             }
             eof {
-              puts "\nERROR: pmbootstrap exited before channel"
+              puts "\nERROR: pmbootstrap exited at channel"
               exit 15
             }
           }
 
+          # DEVICE / VENDOR / OTHER QUESTIONS
           expect {
-            -re {Device.*: *$} {
+            -re {Device.*:} {
               send -- "qcom-msm89x7\r"
+              exp_continue
             }
-            timeout {
-              puts "\nERROR: Timed out waiting for device prompt"
-              exit 16
-            }
-            eof {
-              puts "\nERROR: pmbootstrap exited before device"
-              exit 17
-            }
-          }
 
-          expect {
-            -re {User interface.*: *$} {
+            -re {Vendor.*:} {
+              send -- "qcom\r"
+              exp_continue
+            }
+
+            -re {Codename.*:} {
+              send -- "msm89x7\r"
+              exp_continue
+            }
+
+            -re {Kernel.*:} {
+              send -- "mainline\r"
+              exp_continue
+            }
+
+            -re {User interface.*:} {
               send -- "phosh\r"
+              exp_continue
             }
-            timeout {
-              puts "\nERROR: Timed out waiting for UI prompt"
-              exit 18
-            }
-            eof {
-              puts "\nERROR: pmbootstrap exited before UI"
-              exit 19
-            }
-          }
 
-          expect {
-            -re {Service manager.*: *$} {
+            -re {Service manager.*:} {
               send -- "systemd\r"
+              exp_continue
             }
-            timeout {
-              puts "\nERROR: Timed out waiting for service manager"
-              exit 20
-            }
-            eof {
-              puts "\nERROR: pmbootstrap exited before service manager"
-              exit 21
-            }
-          }
 
-          expect {
-            -re {Locale.*: *$} {
+            -re {Locale.*:} {
               send -- "C.UTF-8\r"
+              exp_continue
             }
-            timeout {
-              puts "\nERROR: Timed out waiting for locale"
-              exit 22
-            }
-            eof {
-              puts "\nERROR: pmbootstrap exited before locale"
-              exit 23
-            }
-          }
 
-          expect {
-            -re {Hostname.*: *$} {
+            -re {Hostname.*:} {
               send -- "qcom-msm89x7\r"
+              exp_continue
             }
-            timeout {
-              puts "\nERROR: Timed out waiting for hostname"
-              exit 24
-            }
-            eof {
-              puts "\nERROR: pmbootstrap exited before hostname"
-              exit 25
-            }
-          }
 
-          expect {
-            -re {Username.*: *$} {
+            -re {Username.*:} {
               send -- "dev\r"
+              exp_continue
             }
-            timeout {
-              puts "\nERROR: Timed out waiting for username"
-              exit 26
-            }
-            eof {
-              puts "\nERROR: pmbootstrap exited before username"
-              exit 27
-            }
-          }
 
-          expect {
+            -re {User.*:} {
+              send -- "dev\r"
+              exp_continue
+            }
+
+            -re {Boot partition.*:} {
+              send -- "512\r"
+              exp_continue
+            }
+
+            -re {Extra.*space.*:} {
+              send -- "0\r"
+              exp_continue
+            }
+
+            -re {Parallel.*jobs.*:} {
+              send -- "4\r"
+              exp_continue
+            }
+
+            -re {ccache.*:} {
+              send -- "0\r"
+              exp_continue
+            }
+
+            -re {outdated.*packages.*:} {
+              send -- "y\r"
+              exp_continue
+            }
+
+            -re {SSH.*:} {
+              send -- "n\r"
+              exp_continue
+            }
+
             eof {
               puts "\n=== pmbootstrap init finished ==="
             }
+
             timeout {
-              puts "\nERROR: Unexpected prompt after username"
-              puts "The exact prompt above is needed to continue."
+              puts "\nERROR: Unknown pmbootstrap prompt"
+              puts "The prompt above needs to be added."
               exit 28
             }
           }
@@ -233,9 +234,7 @@ jobs:
       - name: Export images
         run: |
           mkdir -p "$GITHUB_WORKSPACE/export"
-
-          pmbootstrap export \
-            "$GITHUB_WORKSPACE/export"
+          pmbootstrap export "$GITHUB_WORKSPACE/export"
 
       - name: List output
         if: always()
