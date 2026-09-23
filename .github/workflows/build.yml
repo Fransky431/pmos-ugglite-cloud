@@ -33,30 +33,82 @@ jobs:
       - name: Install pmbootstrap
         run: |
           mkdir -p "$HOME/.local/bin"
-          ln -sf "$GITHUB_WORKSPACE/pmbootstrap/pmbootstrap.py" \
+
+          ln -sf \
+            "$GITHUB_WORKSPACE/pmbootstrap/pmbootstrap.py" \
             "$HOME/.local/bin/pmbootstrap"
+
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
           pmbootstrap --version
 
-      - name: Configure pmbootstrap (non-interactive)
+      - name: Initialize pmbootstrap
         env:
           PMOS_APORTS: ${{ github.workspace }}/pmaports
           PMOS_WORK: /home/runner/.local/var/pmbootstrap
         run: |
           mkdir -p "$PMOS_WORK"
 
-          pmbootstrap -y config aports "$PMOS_APORTS"
-          pmbootstrap -y config work "$PMOS_WORK"
-          pmbootstrap -y config device qcom-msm89x7
-          pmbootstrap -y config ui phosh
-          pmbootstrap -y config service_manager systemd
-          pmbootstrap -y config locale C.UTF-8
-          pmbootstrap -y config hostname qcom-msm89x7
-          pmbootstrap -y config user dev
-          pmbootstrap -y config boot_size 512
-          pmbootstrap -y config extra_space 0
-          pmbootstrap -y config jobs 4
-          pmbootstrap -y config ssh_keys False
+          cat > /tmp/pmbootstrap-init.exp <<'EXPECT'
+          set timeout 1200
+          log_user 1
+
+          spawn pmbootstrap init
+
+          expect {
+            -re {Work path.*: *$} {
+              send -- "$env(PMOS_WORK)\r"
+              exp_continue
+            }
+
+            -re {pmaports.*: *$} {
+              send -- "$env(PMOS_APORTS)\r"
+              exp_continue
+            }
+
+            -re {Channel \[.*\]: *$} {
+              send -- "edge\r"
+              exp_continue
+            }
+
+            -re {Device.*: *$} {
+              send -- "qcom-msm89x7\r"
+              exp_continue
+            }
+
+            -re {User interface.*: *$} {
+              send -- "phosh\r"
+              exp_continue
+            }
+
+            -re {Service manager.*: *$} {
+              send -- "systemd\r"
+              exp_continue
+            }
+
+            -re {Locale.*: *$} {
+              send -- "C.UTF-8\r"
+              exp_continue
+            }
+
+            -re {Hostname.*: *$} {
+              send -- "qcom-msm89x7\r"
+              exp_continue
+            }
+
+            -re {Username.*: *$} {
+              send -- "dev\r"
+              exp_continue
+            }
+
+            eof
+          }
+
+          catch wait result
+          exit [lindex $result 3]
+          EXPECT
+
+          expect /tmp/pmbootstrap-init.exp
 
       - name: Show configuration
         run: |
@@ -66,14 +118,26 @@ jobs:
 
       - name: Verify Ugglite support
         run: |
-          echo "=== UGGLITE REFERENCES ==="
+          echo "=== UGGLITE / MSM89X7 REFERENCES ==="
+
           find "$GITHUB_WORKSPACE/pmaports" \
-            \( -iname '*ugglite*' -o -path '*qcom-msm89x7*' \) \
+            \( \
+              -iname '*ugglite*' \
+              -o -path '*qcom-msm89x7*' \
+            \) \
             -print | head -100
+
+          echo
+          echo "=== UGLGLITE DTB CHECK ==="
+
+          grep -R \
+            "msm8917-xiaomi-ugglite" \
+            "$GITHUB_WORKSPACE/pmaports" \
+            2>/dev/null | head -20 || true
 
       - name: Build installation
         run: |
-          pmbootstrap -y install \
+          pmbootstrap install \
             --no-sshd \
             --no-firewall \
             --filesystem=ext4
@@ -81,22 +145,32 @@ jobs:
       - name: Export images
         run: |
           mkdir -p "$GITHUB_WORKSPACE/export"
-          pmbootstrap export "$GITHUB_WORKSPACE/export"
+
+          pmbootstrap export \
+            "$GITHUB_WORKSPACE/export"
 
       - name: List output
         if: always()
         run: |
           echo "=== EXPORTED FILES ==="
+
           find "$GITHUB_WORKSPACE/export" \
             -type f \
-            -printf '%p %s bytes\n' 2>/dev/null || true
+            -printf '%p %s bytes\n' \
+            2>/dev/null || true
 
           echo
-          echo "=== IMAGE FILES ==="
+          echo "=== PMBOOTSTRAP IMAGE FILES ==="
+
           find "$HOME/.local/var/pmbootstrap" \
             -type f \
-            \( -name "*.img" -o -name "*.zip" -o -name "boot.img" \) \
-            -printf '%p %s bytes\n' 2>/dev/null | head -100 || true
+            \( \
+              -name "*.img" \
+              -o -name "*.zip" \
+              -o -name "boot.img" \
+            \) \
+            -printf '%p %s bytes\n' \
+            2>/dev/null | head -100 || true
 
       - name: Upload postmarketOS build
         if: success()
