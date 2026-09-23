@@ -16,7 +16,8 @@ jobs:
             git python3 openssl \
             parted dosfstools e2fsprogs \
             util-linux mount cpio xz-utils \
-            gzip tar rsync
+            gzip tar rsync \
+            kpartx multipath-tools
 
       - name: Checkout pmbootstrap
         run: |
@@ -27,7 +28,7 @@ jobs:
       - name: Checkout pmaports
         run: |
           git clone --depth=1 \
-            https://gitlab.postmarketOS.org/postmarketOS/pmaports.git \
+            https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
             "$GITHUB_WORKSPACE/pmaports"
 
       - name: Install pmbootstrap
@@ -38,37 +39,51 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           pmbootstrap --version
 
-      - name: Configure pmbootstrap
+      - name: Create pmbootstrap config
         run: |
-          pmbootstrap config aports "$GITHUB_WORKSPACE/pmaports"
-          pmbootstrap config device qcom-msm89x7
-          pmbootstrap config kernel mainline
-          pmbootstrap config ui phosh
-          pmbootstrap config service_manager systemd
-          pmbootstrap config user dev
-          pmbootstrap config locale C.UTF-8
-          pmbootstrap config hostname qcom-msm89x7
-          pmbootstrap config boot_size 512
-          pmbootstrap config extra_space 0
-          pmbootstrap config jobs 4
-          pmbootstrap config ccache_size 0
-          pmbootstrap config build_pkgs_on_install true
-          pmbootstrap config work "$HOME/.local/var/pmbootstrap"
+          mkdir -p "$HOME/.config"
 
-      - name: Show configuration
+          cat > "$HOME/.config/pmbootstrap_v3.cfg" <<EOF2
+          [pmbootstrap]
+          aports = $GITHUB_WORKSPACE/pmaports
+          device = qcom-msm89x7
+          kernel = mainline
+          ui = phosh
+          service_manager = systemd
+          user = dev
+          locale = C.UTF-8
+          hostname = qcom-msm89x7
+          boot_size = 512
+          extra_space = 0
+          jobs = 4
+          ccache_size = 0
+          build_pkgs_on_install = True
+          is_default_channel = True
+          timezone = GMT
+          work = $HOME/.local/var/pmbootstrap
+          EOF2
+
+          echo "=== CONFIG ==="
+          cat "$HOME/.config/pmbootstrap_v3.cfg"
+
+      - name: Check configuration
         run: |
-          echo "=== PMBOOTSTRAP STATUS ==="
-          pmbootstrap status || true
-
+          pmbootstrap status
           echo
-          echo "=== PMBOOTSTRAP CONFIG ==="
-          pmbootstrap config
+          echo "=== CONFIG VALUES ==="
+          pmbootstrap config aports
+          pmbootstrap config device
+          pmbootstrap config kernel
+          pmbootstrap config ui
+          pmbootstrap config service_manager
+          pmbootstrap config work
 
-          echo
-          echo "=== UGGLITE DEVICE ==="
+      - name: Check Ugglite device
+        run: |
+          echo "=== UGGLELITE REFERENCES ==="
           find "$GITHUB_WORKSPACE/pmaports" \
-            -path '*qcom-msm89x7*' \
-            -o -iname '*ugglite*' | head -100
+            \( -iname '*ugglite*' -o -path '*qcom-msm89x7*' \) \
+            -print | head -100
 
       - name: Build installation
         run: |
@@ -90,7 +105,7 @@ jobs:
             -printf '%p %s bytes\n'
 
           echo
-          echo "=== ALL IMAGE FILES ==="
+          echo "=== IMAGE FILES ==="
           find "$HOME/.local/var/pmbootstrap" \
             -type f \
             \( -name "*.img" -o -name "*.zip" -o -name "boot.img" \) \
