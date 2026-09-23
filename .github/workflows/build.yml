@@ -1,0 +1,92 @@
+name: Build postmarketOS Ugglite
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git python3 python3-pip openssl \
+            parted dosfstools e2fsprogs \
+            util-linux mount cpio xz-utils \
+            gzip tar rsync
+
+      - name: Checkout pmbootstrap
+        run: |
+          git clone --depth=1 \
+            https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git \
+            "$GITHUB_WORKSPACE/pmbootstrap"
+
+      - name: Install pmbootstrap
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$GITHUB_WORKSPACE/pmbootstrap/pmbootstrap.py" \
+            "$HOME/.local/bin/pmbootstrap"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          pmbootstrap --version
+
+      - name: Initialize pmbootstrap
+        run: |
+          mkdir -p "$HOME/pmos-work"
+          pmbootstrap init <<'EOF'
+          edge
+          /home/runner/pmaports
+          qcom
+          msm89x7
+          mainline
+          phosh
+          systemd
+          y
+          n
+          C.UTF-8
+          dev
+          qcom-msm89x7
+          y
+          512
+          0
+          4
+          5G
+          n
+          EOF
+
+      - name: Show configuration
+        run: |
+          pmbootstrap status
+          pmbootstrap config
+
+      - name: Build installation
+        run: |
+          pmbootstrap install \
+            --no-sshd \
+            --no-firewall \
+            --filesystem=ext4
+
+      - name: Export images
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/export"
+          pmbootstrap export "$GITHUB_WORKSPACE/export"
+
+      - name: List output
+        run: |
+          echo "=== BUILD OUTPUT ==="
+          find "$GITHUB_WORKSPACE/export" -maxdepth 2 \
+            -type f -printf '%p %s bytes\n'
+          echo
+          echo "=== PMOS WORKDIR ==="
+          find "$HOME/.local/var/pmbootstrap" \
+            -type f -name "*.img" -o -name "*.zip" -o -name "boot.img" \
+            -printf '%p %s bytes\n' | head -100
+
+      - name: Upload postmarketOS images
+        uses: actions/upload-artifact@v4
+        with:
+          name: pmos-ugglite-build
+          path: |
+           
