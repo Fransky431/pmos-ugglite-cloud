@@ -13,7 +13,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git python3 python3-pip openssl \
+            git python3 openssl \
             parted dosfstools e2fsprogs \
             util-linux mount cpio xz-utils \
             gzip tar rsync
@@ -24,6 +24,12 @@ jobs:
             https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git \
             "$GITHUB_WORKSPACE/pmbootstrap"
 
+      - name: Checkout pmaports
+        run: |
+          git clone --depth=1 \
+            https://gitlab.postmarketOS.org/postmarketOS/pmaports.git \
+            "$GITHUB_WORKSPACE/pmaports"
+
       - name: Install pmbootstrap
         run: |
           mkdir -p "$HOME/.local/bin"
@@ -32,34 +38,37 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           pmbootstrap --version
 
-      - name: Initialize pmbootstrap
+      - name: Configure pmbootstrap
         run: |
-          mkdir -p "$HOME/pmos-work"
-          pmbootstrap init <<'EOF'
-          edge
-          /home/runner/pmaports
-          qcom
-          msm89x7
-          mainline
-          phosh
-          systemd
-          y
-          n
-          C.UTF-8
-          dev
-          qcom-msm89x7
-          y
-          512
-          0
-          4
-          5G
-          n
-          EOF
+          pmbootstrap config aports "$GITHUB_WORKSPACE/pmaports"
+          pmbootstrap config device qcom-msm89x7
+          pmbootstrap config kernel mainline
+          pmbootstrap config ui phosh
+          pmbootstrap config service_manager systemd
+          pmbootstrap config user dev
+          pmbootstrap config locale C.UTF-8
+          pmbootstrap config hostname qcom-msm89x7
+          pmbootstrap config boot_size 512
+          pmbootstrap config extra_space 0
+          pmbootstrap config jobs 4
+          pmbootstrap config ccache_size 0
+          pmbootstrap config build_pkgs_on_install true
+          pmbootstrap config work "$HOME/.local/var/pmbootstrap"
 
       - name: Show configuration
         run: |
-          pmbootstrap status
+          echo "=== PMBOOTSTRAP STATUS ==="
+          pmbootstrap status || true
+
+          echo
+          echo "=== PMBOOTSTRAP CONFIG ==="
           pmbootstrap config
+
+          echo
+          echo "=== UGGLITE DEVICE ==="
+          find "$GITHUB_WORKSPACE/pmaports" \
+            -path '*qcom-msm89x7*' \
+            -o -iname '*ugglite*' | head -100
 
       - name: Build installation
         run: |
@@ -75,18 +84,23 @@ jobs:
 
       - name: List output
         run: |
-          echo "=== BUILD OUTPUT ==="
-          find "$GITHUB_WORKSPACE/export" -maxdepth 2 \
-            -type f -printf '%p %s bytes\n'
+          echo "=== EXPORTED FILES ==="
+          find "$GITHUB_WORKSPACE/export" \
+            -type f \
+            -printf '%p %s bytes\n'
+
           echo
-          echo "=== PMOS WORKDIR ==="
+          echo "=== ALL IMAGE FILES ==="
           find "$HOME/.local/var/pmbootstrap" \
-            -type f -name "*.img" -o -name "*.zip" -o -name "boot.img" \
+            -type f \
+            \( -name "*.img" -o -name "*.zip" -o -name "boot.img" \) \
             -printf '%p %s bytes\n' | head -100
 
-      - name: Upload postmarketOS images
+      - name: Upload postmarketOS build
         uses: actions/upload-artifact@v4
         with:
           name: pmos-ugglite-build
           path: |
-           
+            export/**
+          if-no-files-found: error
+          retention-days: 7
