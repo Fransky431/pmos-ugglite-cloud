@@ -49,24 +49,19 @@ jobs:
         run: |
           mkdir -p "$PMOS_WORK"
 
-          printf '%s\n' \
-            "$PMOS_WORK" \
-            "$PMOS_APORTS" \
-            "edge" \
-            "qcom" \
-            "msm89x7" \
-            "phosh" \
-            "systemd" \
-            "C.UTF-8" \
-            "qcom-msm89x7" \
-            "dev" \
-            "512" \
-            "0" \
-            "4" \
-            "0" \
-            "y" \
-            "n" \
-          | timeout 120 pmbootstrap init
+          {
+            printf '%s\n' "$PMOS_WORK"
+            printf '%s\n' "$PMOS_APORTS"
+            printf '%s\n' "edge"
+            printf '%s\n' "qcom"
+            printf '%s\n' "msm89x7"
+            printf '%s\n' "dev"
+
+            # Accept all provider defaults.
+            for i in $(seq 1 20); do
+              printf '\n'
+            done
+          } | timeout 180 pmbootstrap init
 
       - name: Show configuration
         run: |
@@ -76,7 +71,7 @@ jobs:
 
       - name: Verify Ugglite support
         run: |
-          echo "=== UGGLITE REFERENCES ==="
+          echo "=== PMAPORTS DEVICE REFERENCES ==="
 
           find "$GITHUB_WORKSPACE/pmaports" \
             \( \
@@ -86,7 +81,7 @@ jobs:
             -print | head -100
 
           echo
-          echo "=== UGGLITE DTB ==="
+          echo "=== UGGLITE DTB REFERENCES ==="
 
           grep -R \
             "msm8917-xiaomi-ugglite" \
