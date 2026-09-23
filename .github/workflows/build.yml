@@ -13,11 +13,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git python3 openssl \
+            git python3 openssl expect \
             parted dosfstools e2fsprogs \
             util-linux mount cpio xz-utils \
-            gzip tar rsync \
-            kpartx multipath-tools
+            gzip tar rsync kpartx multipath-tools
 
       - name: Checkout pmbootstrap
         run: |
@@ -39,48 +38,110 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           pmbootstrap --version
 
-      - name: Create pmbootstrap config
+      - name: Initialize pmbootstrap
+        env:
+          PMOS_APORTS: ${{ github.workspace }}/pmaports
+          PMOS_WORK: /home/runner/.local/var/pmbootstrap
         run: |
-          mkdir -p "$HOME/.config"
+          mkdir -p "$PMOS_WORK"
 
-          cat > "$HOME/.config/pmbootstrap_v3.cfg" <<EOF2
-          [pmbootstrap]
-          aports = $GITHUB_WORKSPACE/pmaports
-          device = qcom-msm89x7
-          kernel = mainline
-          ui = phosh
-          service_manager = systemd
-          user = dev
-          locale = C.UTF-8
-          hostname = qcom-msm89x7
-          boot_size = 512
-          extra_space = 0
-          jobs = 4
-          ccache_size = 0
-          build_pkgs_on_install = True
-          is_default_channel = True
-          timezone = GMT
-          work = $HOME/.local/var/pmbootstrap
-          EOF2
+          cat > /tmp/pmbootstrap-init.exp <<'EXPECT'
+          set timeout 1200
+          log_user 1
 
-          echo "=== CONFIG ==="
-          cat "$HOME/.config/pmbootstrap_v3.cfg"
+          spawn pmbootstrap init
 
-      - name: Check configuration
+          expect {
+            -re ".*aports.*path.*" {
+              send -- "$env(PMOS_APORTS)\r"
+              exp_continue
+            }
+            -re ".*pmaports.*path.*" {
+              send -- "$env(PMOS_APORTS)\r"
+              exp_continue
+            }
+            -re ".*device.*" {
+              send -- "qcom-msm89x7\r"
+              exp_continue
+            }
+            -re ".*vendor.*" {
+              send -- "qcom\r"
+              exp_continue
+            }
+            -re ".*codename.*" {
+              send -- "msm89x7\r"
+              exp_continue
+            }
+            -re ".*kernel.*" {
+              send -- "mainline\r"
+              exp_continue
+            }
+            -re ".*UI.*" {
+              send -- "phosh\r"
+              exp_continue
+            }
+            -re ".*service manager.*" {
+              send -- "systemd\r"
+              exp_continue
+            }
+            -re ".*locale.*" {
+              send -- "C.UTF-8\r"
+              exp_continue
+            }
+            -re ".*hostname.*" {
+              send -- "qcom-msm89x7\r"
+              exp_continue
+            }
+            -re ".*username.*" {
+              send -- "dev\r"
+              exp_continue
+            }
+            -re ".*user.*" {
+              send -- "dev\r"
+              exp_continue
+            }
+            -re ".*boot.*size.*" {
+              send -- "512\r"
+              exp_continue
+            }
+            -re ".*extra.*space.*" {
+              send -- "0\r"
+              exp_continue
+            }
+            -re ".*parallel.*jobs.*" {
+              send -- "4\r"
+              exp_continue
+            }
+            -re ".*ccache.*" {
+              send -- "0\r"
+              exp_continue
+            }
+            -re ".*outdated.*packages.*" {
+              send -- "y\r"
+              exp_continue
+            }
+            -re ".*SSH.*" {
+              send -- "n\r"
+              exp_continue
+            }
+            eof
+          }
+
+          catch wait result
+          exit [lindex $result 3]
+          EXPECT
+
+          expect /tmp/pmbootstrap-init.exp
+
+      - name: Show configuration
         run: |
           pmbootstrap status
           echo
-          echo "=== CONFIG VALUES ==="
-          pmbootstrap config aports
-          pmbootstrap config device
-          pmbootstrap config kernel
-          pmbootstrap config ui
-          pmbootstrap config service_manager
-          pmbootstrap config work
+          pmbootstrap config
 
-      - name: Check Ugglite device
+      - name: Verify Ugglite support
         run: |
-          echo "=== UGGLELITE REFERENCES ==="
+          echo "=== UGGLITE REFERENCES ==="
           find "$GITHUB_WORKSPACE/pmaports" \
             \( -iname '*ugglite*' -o -path '*qcom-msm89x7*' \) \
             -print | head -100
@@ -98,20 +159,22 @@ jobs:
           pmbootstrap export "$GITHUB_WORKSPACE/export"
 
       - name: List output
+        if: always()
         run: |
           echo "=== EXPORTED FILES ==="
           find "$GITHUB_WORKSPACE/export" \
             -type f \
-            -printf '%p %s bytes\n'
+            -printf '%p %s bytes\n' 2>/dev/null || true
 
           echo
           echo "=== IMAGE FILES ==="
           find "$HOME/.local/var/pmbootstrap" \
             -type f \
             \( -name "*.img" -o -name "*.zip" -o -name "boot.img" \) \
-            -printf '%p %s bytes\n' | head -100
+            -printf '%p %s bytes\n' 2>/dev/null | head -100 || true
 
       - name: Upload postmarketOS build
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: pmos-ugglite-build
