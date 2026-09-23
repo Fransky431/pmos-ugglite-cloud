@@ -49,8 +49,8 @@ jobs:
         run: |
           mkdir -p "$PMOS_WORK"
 
-          cat > /tmp/pmbootstrap-init.exp <<'EXPECT'
-          set timeout 1200
+          cat > /tmp/init.exp <<'EXPECT'
+          set timeout 30
           log_user 1
 
           spawn pmbootstrap init
@@ -58,57 +58,145 @@ jobs:
           expect {
             -re {Work path.*: *$} {
               send -- "$env(PMOS_WORK)\r"
-              exp_continue
             }
+            timeout {
+              puts "\nERROR: Timed out waiting for Work path prompt"
+              exit 10
+            }
+            eof {
+              puts "\nERROR: pmbootstrap exited before Work path"
+              exit 11
+            }
+          }
 
+          expect {
             -re {pmaports.*: *$} {
               send -- "$env(PMOS_APORTS)\r"
-              exp_continue
             }
+            timeout {
+              puts "\nERROR: Timed out waiting for pmaports prompt"
+              exit 12
+            }
+            eof {
+              puts "\nERROR: pmbootstrap exited before pmaports"
+              exit 13
+            }
+          }
 
+          expect {
             -re {Channel \[.*\]: *$} {
               send -- "edge\r"
-              exp_continue
             }
+            timeout {
+              puts "\nERROR: Timed out waiting for channel prompt"
+              exit 14
+            }
+            eof {
+              puts "\nERROR: pmbootstrap exited before channel"
+              exit 15
+            }
+          }
 
+          expect {
             -re {Device.*: *$} {
               send -- "qcom-msm89x7\r"
-              exp_continue
             }
+            timeout {
+              puts "\nERROR: Timed out waiting for device prompt"
+              exit 16
+            }
+            eof {
+              puts "\nERROR: pmbootstrap exited before device"
+              exit 17
+            }
+          }
 
+          expect {
             -re {User interface.*: *$} {
               send -- "phosh\r"
-              exp_continue
             }
+            timeout {
+              puts "\nERROR: Timed out waiting for UI prompt"
+              exit 18
+            }
+            eof {
+              puts "\nERROR: pmbootstrap exited before UI"
+              exit 19
+            }
+          }
 
+          expect {
             -re {Service manager.*: *$} {
               send -- "systemd\r"
-              exp_continue
             }
+            timeout {
+              puts "\nERROR: Timed out waiting for service manager"
+              exit 20
+            }
+            eof {
+              puts "\nERROR: pmbootstrap exited before service manager"
+              exit 21
+            }
+          }
 
+          expect {
             -re {Locale.*: *$} {
               send -- "C.UTF-8\r"
-              exp_continue
             }
+            timeout {
+              puts "\nERROR: Timed out waiting for locale"
+              exit 22
+            }
+            eof {
+              puts "\nERROR: pmbootstrap exited before locale"
+              exit 23
+            }
+          }
 
+          expect {
             -re {Hostname.*: *$} {
               send -- "qcom-msm89x7\r"
-              exp_continue
             }
+            timeout {
+              puts "\nERROR: Timed out waiting for hostname"
+              exit 24
+            }
+            eof {
+              puts "\nERROR: pmbootstrap exited before hostname"
+              exit 25
+            }
+          }
 
+          expect {
             -re {Username.*: *$} {
               send -- "dev\r"
-              exp_continue
             }
+            timeout {
+              puts "\nERROR: Timed out waiting for username"
+              exit 26
+            }
+            eof {
+              puts "\nERROR: pmbootstrap exited before username"
+              exit 27
+            }
+          }
 
-            eof
+          expect {
+            eof {
+              puts "\n=== pmbootstrap init finished ==="
+            }
+            timeout {
+              puts "\nERROR: Unexpected prompt after username"
+              puts "The exact prompt above is needed to continue."
+              exit 28
+            }
           }
 
           catch wait result
           exit [lindex $result 3]
           EXPECT
 
-          expect /tmp/pmbootstrap-init.exp
+          expect /tmp/init.exp
 
       - name: Show configuration
         run: |
@@ -118,7 +206,7 @@ jobs:
 
       - name: Verify Ugglite support
         run: |
-          echo "=== UGGLITE / MSM89X7 REFERENCES ==="
+          echo "=== UGGLITE REFERENCES ==="
 
           find "$GITHUB_WORKSPACE/pmaports" \
             \( \
@@ -128,7 +216,7 @@ jobs:
             -print | head -100
 
           echo
-          echo "=== UGLGLITE DTB CHECK ==="
+          echo "=== UGGLITE DTB ==="
 
           grep -R \
             "msm8917-xiaomi-ugglite" \
@@ -160,7 +248,7 @@ jobs:
             2>/dev/null || true
 
           echo
-          echo "=== PMBOOTSTRAP IMAGE FILES ==="
+          echo "=== IMAGE FILES ==="
 
           find "$HOME/.local/var/pmbootstrap" \
             -type f \
